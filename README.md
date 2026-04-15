@@ -48,6 +48,20 @@ Download the official `update.bin` from FunnyPlaying and flash it the same way. 
 - **Underlying project:** [sanni/cartreader](https://github.com/sanni/cartreader) (the cartridge reader software the BurnMaster firmware is based on)
 - **This fork:** [davgk](https://github.com/davgk), with diagnostic and patch assistance from Claude Code
 
+## Disclaimer
+
+This is **unofficial, community-maintained software** provided **as-is**, without any warranty of any kind, express or implied. Use is entirely at your own risk.
+
+By flashing this firmware to your BurnMaster you acknowledge that:
+
+- The author(s) of this project are **not affiliated with FunnyPlaying** and this firmware is not endorsed, supported, or distributed by them.
+- The author(s) accept **no liability** for any damage to your hardware, loss of data (including ROM dumps, save files, or cartridge contents), bricked devices, or any other direct or indirect consequences of using this firmware.
+- You are responsible for **maintaining your own backups** of any data on cartridges before performing read or write operations.
+- The official FunnyPlaying firmware can be flashed back at any time via the same `update.bin` mechanism (see *Reverting to official firmware* above).
+- If you encounter problems, please **contact the author(s) of this project, not FunnyPlaying** — they cannot help with modifications they did not produce.
+
+The firmware is distributed under the GPL-3.0 license, which includes a formal disclaimer of warranty in its full text. This section is provided as a plain-language summary and does not replace the license terms.
+
 ## License
 
 GPL-3.0, inherited from the original firmware.
