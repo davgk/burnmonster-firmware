@@ -365,6 +365,12 @@ next_page:
         break;
       }
 
+      // Skip hidden files (dot-files) and macOS system directories
+      if (finfo.fname[0] == '.')
+        continue;
+      if (strncmp(finfo.fname, "__MACOSX", 8) == 0)
+        continue;
+
       //if(finfo.altname[0])strcpy(fileNames[currFile],finfo.fname);else
       strcpy(fileNames[currFile],finfo.fname);
       strcpy(tanswers[menucnt],fileNames[currFile]);
