@@ -24,7 +24,7 @@ jobs:
       - name: Compile Firmware
         run: |
             cd arm_segger_embedded_studio_v622a_linux_x64/bin
-            ./emBuild -config "Debug" ${{ github.workspace }}//Burnmonster-Firmware/CartReaderApp/GDCartReader.emProject
+            ./emBuild -config "Debug" ${{ github.workspace }}/Burnmonster-Firmware/CartReaderApp/GDCartReader.emProject
 
       - name: Rename binary
         run: mv ${{ github.workspace }}/Burnmonster-Firmware/CartReaderApp/Output/Debug/Exe/GDCartReader.bin ${{ github.workspace }}/Burnmonster-Firmware/CartReaderApp/Output/Debug/Exe/update.bin
