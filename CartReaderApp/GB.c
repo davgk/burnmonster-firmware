@@ -2292,45 +2292,187 @@ void gbFlashScreen()
 }
 
 // GB menu items
-static const char GBMenuItem1[] = "Flash GBC Cart";
-static const char GBMenuItem2[] = "Read Rom";
-static const char GBMenuItem3[] = "Read Save";
-static const char GBMenuItem4[] = "Write Save";
-static const char GBMenuItem5[] = "NPower GB Memory";
-static const char GBMenuItem6[] = "Reset";
-static const char* const menuOptionsGB[] = {GBMenuItem1, GBMenuItem2, GBMenuItem3, GBMenuItem4, GBMenuItem5, GBMenuItem6};
+static const char GBMenuItem1[] = "Read Save";
+static const char GBMenuItem2[] = "Write Save";
+static const char GBMenuItem3[] = "Manage Saves";
+static const char GBMenuItem4[] = "Read Rom";
+static const char GBMenuItem5[] = "Flash GBC Cart";
+static const char GBMenuItem6[] = "NPower GB Memory";
+static const char GBMenuItem7[] = "Reset";
+static const char* const menuOptionsGB[] = {GBMenuItem1, GBMenuItem2, GBMenuItem3, GBMenuItem4, GBMenuItem5, GBMenuItem6, GBMenuItem7};
 
-uint8_t gbMenu() 
+void manageSaves_GB() {
+  if (lastByte == 0) {
+    print_Error("Cart has no Sram", false);
+    return;
+  }
+
+  char savePath[FILEPATH_LENGTH];
+  sprintf(savePath, "GB/SAVE/%s", romName);
+
+  // Collect existing slots that contain a .sav file (max 6)
+  char slotNames[6][32];
+  int slotCount = 0;
+  {
+    DIR sdir;
+    FILINFO sfinfo;
+    if (f_opendir(&sdir, savePath) == FR_OK) {
+      while (slotCount < 6) {
+        if (f_readdir(&sdir, &sfinfo) != FR_OK || sfinfo.fname[0] == 0x00)
+          break;
+        if (sfinfo.fname[0] == '.')
+          continue;
+        if (!(sfinfo.fattrib & AM_DIR))
+          continue;
+        bool hasSav = false;
+        {
+          char subPath[FILEPATH_LENGTH];
+          snprintf(subPath, sizeof(subPath), "%s/%s", savePath, sfinfo.fname);
+          DIR subdir;
+          FILINFO subinfo;
+          if (f_opendir(&subdir, subPath) == FR_OK) {
+            while (1) {
+              if (f_readdir(&subdir, &subinfo) != FR_OK || subinfo.fname[0] == 0x00)
+                break;
+              int len = strlen(subinfo.fname);
+              if (len >= 4 &&
+                  (strcmp(subinfo.fname + len - 4, ".sav") == 0 ||
+                   strcmp(subinfo.fname + len - 4, ".SAV") == 0)) {
+                hasSav = true;
+                break;
+              }
+            }
+            f_closedir(&subdir);
+          }
+        }
+        if (!hasSav)
+          continue;
+        strncpy(slotNames[slotCount], sfinfo.fname, 31);
+        slotNames[slotCount][31] = '\0';
+        slotCount++;
+      } /* closes while (slotCount < 6) */
+      f_closedir(&sdir);
+    }
+  }
+
+  if (slotCount == 0) {
+    OledClear();
+    OledShowString(0, 2, "No saves found", 8);
+    return;
+  }
+
+  // Sort: - prefix entries first (alphabetical), then numeric ascending
+  for (int i = 1; i < slotCount; i++) {
+    char tmp[32];
+    strncpy(tmp, slotNames[i], 32);
+    int j = i - 1;
+    while (j >= 0) {
+      int a_dash = (slotNames[j][0] == '-');
+      int b_dash = (tmp[0] == '-');
+      int a_after_b;
+      if (a_dash && !b_dash) {
+        a_after_b = 0;
+      } else if (!a_dash && b_dash) {
+        a_after_b = 1;
+      } else if (a_dash) {
+        a_after_b = (strcmp(slotNames[j], tmp) > 0);
+      } else {
+        a_after_b = (atoi(slotNames[j]) > atoi(tmp));
+      }
+      if (a_after_b) {
+        strncpy(slotNames[j + 1], slotNames[j], 32);
+        j--;
+      } else {
+        break;
+      }
+    }
+    strncpy(slotNames[j + 1], tmp, 32);
+  }
+
+  const char *confirmYN[7] = {"Yes", "No", "", "", "", "", ""};
+
+  while (1) {
+    char *aptrs[7];
+    for (int i = 0; i < slotCount; i++) aptrs[i] = slotNames[i];
+    OledClear();
+    uint8_t choice = questionBox_OLED("Manage Saves", (const char **)aptrs, slotCount, 1, 0, 1);
+    if (choice == MENU_CANCEL)
+      return;
+    int idx = choice - 1;
+
+    // Confirm delete
+    if (slotNames[idx][0] == '-') {
+      // User slot: double confirmation, default No
+      OledClear();
+      uint8_t c1 = questionBox_OLED("Delete slot?", (const char **)confirmYN, 2, 2, 0, 1);
+      if (c1 != MENU_1)
+        continue;
+      OledClear();
+      uint8_t c2 = questionBox_OLED("Are you sure?", (const char **)confirmYN, 2, 2, 0, 1);
+      if (c2 != MENU_1)
+        continue;
+    } else {
+      // Auto-save: single confirmation, default No
+      OledClear();
+      uint8_t c1 = questionBox_OLED("Delete save?", (const char **)confirmYN, 2, 2, 0, 1);
+      if (c1 != MENU_1)
+        continue;
+    }
+
+    // Delete the .sav file then the subfolder
+    char slotPath[FILEPATH_LENGTH];
+    snprintf(slotPath, sizeof(slotPath), "%s/%s", savePath, slotNames[idx]);
+    // Find the actual .sav file in the slot folder
+    char savFile[FILEPATH_LENGTH] = {0};
+    {
+      DIR deldir;
+      FILINFO delinfo;
+      if (f_opendir(&deldir, slotPath) == FR_OK) {
+        while (1) {
+          if (f_readdir(&deldir, &delinfo) != FR_OK || delinfo.fname[0] == 0x00)
+            break;
+          int len = strlen(delinfo.fname);
+          if (len >= 4 &&
+              (strcmp(delinfo.fname + len - 4, ".sav") == 0 ||
+               strcmp(delinfo.fname + len - 4, ".SAV") == 0)) {
+            snprintf(savFile, sizeof(savFile), "%s/%s", slotPath, delinfo.fname);
+            break;
+          }
+        }
+        f_closedir(&deldir);
+      }
+    }
+    if (savFile[0] != '\0')
+      f_unlink(savFile);
+    f_unlink(slotPath);
+
+    // Remove from local list and loop back
+    for (int k = idx; k < slotCount - 1; k++)
+      strncpy(slotNames[k], slotNames[k + 1], 32);
+    slotCount--;
+
+    if (slotCount == 0) {
+      OledClear();
+      OledShowString(0, 2, "No saves left", 8);
+      return;
+    }
+  }
+}
+
+uint8_t gbMenu()
 {
-  //
   uint8_t bret = 0;
-  
-  // create menu with title and 3 options to choose from
-  unsigned char gbMenu = questionBox_OLED("GB Cart Reader", menuOptionsGB, 6, 1, 1, 1);
 
-  // wait for user choice to come back from the question box menu
+  unsigned char gbMenu = questionBox_OLED("GB Cart Reader", menuOptionsGB, 7, 1, 1, 1);
+
   switch (gbMenu)
   {
     case 0:
-      //cancel btn clicked
       bret = 1;
       break;
     case 1:
-      gbFlashScreen();
-      break;
-    case 2:
       OledClear();
-      // Change working dir to root
-      //f_chdir("/");
-      readROM_GB();
-      compare_checksum_GB();
-      break;
-
-    case 3:
-      OledClear();
-      // Does cartridge have SRAM
       if (lastByte > 0) {
-      // Change working dir to root
         f_chdir("/");
         readSRAM_GB();
       }
@@ -2338,13 +2480,10 @@ uint8_t gbMenu()
         print_Error("Cart has no Sram", false);
       }
       break;
-
-    case 4:
+    case 2:
       OledClear();
-      // Does cartridge have SRAM
-      if (lastByte > 0) 
+      if (lastByte > 0)
       {
-        // Change working dir to root
         f_chdir("/");
         filePath[0] = '\0';
         fileBrowser("/","Select sav file");
@@ -2352,11 +2491,11 @@ uint8_t gbMenu()
         OledClear();
         unsigned long wrErrors;
         wrErrors = verifySRAM_GB();
-        if (wrErrors == 0) 
+        if (wrErrors == 0)
         {
           OledShowString(0,2,"Verified OK",8);
         }
-        else 
+        else
         {
           char tbufp[30] = {0};
           sprintf(tbufp,"Error: %d bytes.",wrErrors);
@@ -2368,17 +2507,27 @@ uint8_t gbMenu()
         print_Error("Cart has no Sram", false);
       }
       break;
-
+    case 3:
+      OledClear();
+      f_chdir("/");
+      manageSaves_GB();
+      break;
+    case 4:
+      OledClear();
+      readROM_GB();
+      compare_checksum_GB();
+      break;
     case 5:
-      // Flash GB Memory
-      gbmScreen();
+      gbFlashScreen();
       break;
     case 6:
+      gbmScreen();
+      break;
+    case 7:
       ResetSystem();
       break;
   }
 
-  //OledClear();
   if(bret == 0)
   {
     OledShowString(0,7,"Press OK Button...",8);
