@@ -233,6 +233,83 @@ unsigned char questionBox_OLED(char * question, const char* const answers[7], in
 }
 
 
+#define PAGE_SIZE 6
+
+unsigned char pagedMenu_OLED(char *question, const char **entries, int count, int default_choice)
+{
+  if (count <= 0)
+    return MENU_CANCEL;
+
+  int totalPages = (count + PAGE_SIZE - 1) / PAGE_SIZE;
+
+  if (default_choice < 1 || default_choice > count)
+    default_choice = 1;
+
+  int globalIdx = default_choice - 1;
+  int currPage  = globalIdx / PAGE_SIZE;
+
+  OledClear();
+
+  while (1)
+  {
+    int pageStart = currPage * PAGE_SIZE;
+    int pageCount = count - pageStart;
+    if (pageCount > PAGE_SIZE) pageCount = PAGE_SIZE;
+
+    int localCursor = (globalIdx - pageStart) + 1;
+
+    if (totalPages > 1)
+    {
+      char indicator[21] = {0};
+      char center[8]     = {0};
+      snprintf(center, sizeof(center), "%d/%d", currPage + 1, totalPages);
+      int innerWidth = 14;
+      int textLen    = strlen(center);
+      int leftPad    = (innerWidth - textLen) / 2;
+      int rightPad   = innerWidth - textLen - leftPad;
+      snprintf(indicator, sizeof(indicator), "<%*s%s%*s>",
+               leftPad, "", center, rightPad, "");
+      OledShowString(0, 7, indicator, 8);
+    }
+    else
+    {
+      OledShowString(0, 7, "                    ", 8);
+    }
+
+    unsigned char ret = questionBox_OLED(
+      question,
+      (const char* const *)entries + pageStart,
+      pageCount,
+      localCursor,
+      0,
+      0
+    );
+
+    if (ret == MENU_CANCEL)
+      return MENU_CANCEL;
+
+    if (ret >= MENU_1 && ret <= MENU_7)
+      return pageStart + ret;
+
+    if (ret == MENU_PGUP || ret == MENU_UPUP)
+    {
+      currPage = (currPage == 0) ? (totalPages - 1) : (currPage - 1);
+      globalIdx = currPage * PAGE_SIZE;
+      OledClear();
+      continue;
+    }
+
+    if (ret == MENU_PGDN || ret == MENU_DOWNDOWN)
+    {
+      currPage = (currPage == totalPages - 1) ? 0 : (currPage + 1);
+      globalIdx = currPage * PAGE_SIZE;
+      OledClear();
+      continue;
+    }
+  }
+}
+
+
 
 uint8_t my_mkdir(char * dir)
 {
