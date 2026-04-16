@@ -610,7 +610,7 @@ void readSRAM_GB() {
     char savePath[FILEPATH_LENGTH];
     sprintf(savePath, "GB/SAVE/%s", romName);
 
-    // Collect existing slots (max 6; user slots - prefix sort above numerics)
+    // Collect existing slots that contain a .sav file (max 6)
     char slotNames[6][32];
     int slotCount = 0;
     {
@@ -624,12 +624,64 @@ void readSRAM_GB() {
             continue;
           if (!(sfinfo.fattrib & AM_DIR))
             continue;
+          // Only include slots that actually contain a .sav file
+          bool hasSav = false;
+          {
+            char subPath[FILEPATH_LENGTH];
+            snprintf(subPath, sizeof(subPath), "%s/%s", savePath, sfinfo.fname);
+            DIR subdir;
+            FILINFO subinfo;
+            if (f_opendir(&subdir, subPath) == FR_OK) {
+              while (1) {
+                if (f_readdir(&subdir, &subinfo) != FR_OK || subinfo.fname[0] == 0x00)
+                  break;
+                int len = strlen(subinfo.fname);
+                if (len >= 4 &&
+                    (strcmp(subinfo.fname + len - 4, ".sav") == 0 ||
+                     strcmp(subinfo.fname + len - 4, ".SAV") == 0)) {
+                  hasSav = true;
+                  break;
+                }
+              }
+              f_closedir(&subdir);
+            }
+          }
+          if (!hasSav)
+            continue;
           strncpy(slotNames[slotCount], sfinfo.fname, 31);
           slotNames[slotCount][31] = '\0';
           slotCount++;
         }
         f_closedir(&sdir);
       }
+    }
+
+    // Sort: - prefix entries first (alphabetical), then numeric ascending
+    for (int i = 1; i < slotCount; i++) {
+      char tmp[32];
+      strncpy(tmp, slotNames[i], 32);
+      int j = i - 1;
+      while (j >= 0) {
+        int a_dash = (slotNames[j][0] == '-');
+        int b_dash = (tmp[0] == '-');
+        int a_after_b;
+        if (a_dash && !b_dash) {
+          a_after_b = 0;
+        } else if (!a_dash && b_dash) {
+          a_after_b = 1;
+        } else if (a_dash) {
+          a_after_b = (strcmp(slotNames[j], tmp) > 0);
+        } else {
+          a_after_b = (atoi(slotNames[j]) > atoi(tmp));
+        }
+        if (a_after_b) {
+          strncpy(slotNames[j + 1], slotNames[j], 32);
+          j--;
+        } else {
+          break;
+        }
+      }
+      strncpy(slotNames[j + 1], tmp, 32);
     }
 
     char targetSlot[32];
@@ -656,6 +708,7 @@ void readSRAM_GB() {
 
       // Slot selection loop — loops back on confirmation No/cancel
       while (1) {
+        OledClear();
         uint8_t choice = questionBox_OLED("Select slot", (const char **)aptrs, menuCount, 1, 0, 1);
         if (choice == MENU_CANCEL)
           return;
@@ -670,14 +723,17 @@ void readSRAM_GB() {
         // Existing slot selected: confirm overwrite
         if (slotNames[idx][0] == '-') {
           // User slot: double confirmation
+          OledClear();
           uint8_t c1 = questionBox_OLED("Overwrite slot?", (const char **)confirmYN, 2, 1, 0, 1);
           if (c1 != MENU_1)
             continue;
+          OledClear();
           uint8_t c2 = questionBox_OLED("Are you sure?", (const char **)confirmYN, 2, 2, 0, 1);
           if (c2 != MENU_1)
             continue;
         } else {
           // Auto-save: single confirmation
+          OledClear();
           uint8_t c1 = questionBox_OLED("Overwrite save?", (const char **)confirmYN, 2, 1, 0, 1);
           if (c1 != MENU_1)
             continue;
@@ -690,6 +746,7 @@ void readSRAM_GB() {
     }
 
     // Enter the target folder, creating it if this is a new slot
+    OledClear();
     sprintf(folder, "%s/%s", savePath, targetSlot);
     if (doCreate)
       my_mkdir(folder);
