@@ -606,16 +606,94 @@ void readSRAM_GB() {
     strcpy(fileName, romName);
     strcat(fileName, ".sav");
 
-    // create a new folder for the save file
-    foldern = (int)load_dword();
-    if (foldern < 1) foldern = 1;
-    sprintf(folder, "GB/SAVE/%s/%d", romName, foldern);
-    my_mkdir(folder);
-    f_chdir(folder);
+    // Slot selection: scan game save directory and determine target folder
+    char savePath[FILEPATH_LENGTH];
+    sprintf(savePath, "GB/SAVE/%s", romName);
 
-    // write new folder number back to eeprom
-    foldern = foldern + 1;
-    save_dword(foldern);
+    // Collect existing slots (max 6; user slots - prefix sort above numerics)
+    char slotNames[6][32];
+    int slotCount = 0;
+    {
+      DIR sdir;
+      FILINFO sfinfo;
+      if (f_opendir(&sdir, savePath) == FR_OK) {
+        while (slotCount < 6) {
+          if (f_readdir(&sdir, &sfinfo) != FR_OK || sfinfo.fname[0] == 0x00)
+            break;
+          if (sfinfo.fname[0] == '.')
+            continue;
+          if (!(sfinfo.fattrib & AM_DIR))
+            continue;
+          strncpy(slotNames[slotCount], sfinfo.fname, 31);
+          slotNames[slotCount][31] = '\0';
+          slotCount++;
+        }
+        f_closedir(&sdir);
+      }
+    }
+
+    char targetSlot[32];
+    bool doCreate = true;
+
+    if (slotCount == 0) {
+      // No existing slots — create new auto-save directly
+      int slot = next_save_slot(savePath);
+      sprintf(targetSlot, "%d", slot);
+    } else {
+      // Build answer list: existing slots + [New auto-save]
+      char answerBuf[7][32];
+      for (int i = 0; i < slotCount; i++) {
+        strncpy(answerBuf[i], slotNames[i], 31);
+        answerBuf[i][31] = '\0';
+      }
+      strncpy(answerBuf[slotCount], "[New auto-save]", 31);
+      int menuCount = slotCount + 1;
+      char *aptrs[7];
+      for (int i = 0; i < 7; i++) aptrs[i] = answerBuf[i];
+
+      // Yes/No answers for confirmation dialogs
+      const char *confirmYN[7] = {"Yes", "No", "", "", "", "", ""};
+
+      // Slot selection loop — loops back on confirmation No/cancel
+      while (1) {
+        uint8_t choice = questionBox_OLED("Select slot", (const char **)aptrs, menuCount, 1, 0, 1);
+        if (choice == MENU_CANCEL)
+          return;
+        int idx = choice - 1;
+        if (idx == slotCount) {
+          // [New auto-save] selected
+          int slot = next_save_slot(savePath);
+          sprintf(targetSlot, "%d", slot);
+          doCreate = true;
+          break;
+        }
+        // Existing slot selected: confirm overwrite
+        if (slotNames[idx][0] == '-') {
+          // User slot: double confirmation
+          uint8_t c1 = questionBox_OLED("Overwrite slot?", (const char **)confirmYN, 2, 1, 0, 1);
+          if (c1 != MENU_1)
+            continue;
+          uint8_t c2 = questionBox_OLED("Are you sure?", (const char **)confirmYN, 2, 2, 0, 1);
+          if (c2 != MENU_1)
+            continue;
+        } else {
+          // Auto-save: single confirmation
+          uint8_t c1 = questionBox_OLED("Overwrite save?", (const char **)confirmYN, 2, 1, 0, 1);
+          if (c1 != MENU_1)
+            continue;
+        }
+        strncpy(targetSlot, slotNames[idx], 31);
+        targetSlot[31] = '\0';
+        doCreate = false;
+        break;
+      }
+    }
+
+    // Enter the target folder, creating it if this is a new slot
+    sprintf(folder, "%s/%s", savePath, targetSlot);
+    if (doCreate)
+      my_mkdir(folder);
+    f_chdir(folder);
 
     //open file on sd card
     FIL tfile;
