@@ -96,9 +96,9 @@ void aboutScreen()
   OledClear();
   OledShowString(0, 0, (char *)"Burn",    16);
   OledShowString(0, 2, (char *)"Monster", 16);
-  OledShowString(20, 4, (char *)BURNMONSTER_VERSION, 8);
-  OledShowString(20, 5, (char *)"based on FP BurnMaster", 8);
-  OledShowString(20, 6, (char *)"github.com/davgk", 8);
+  OledShowString(0, 4, (char *)BURNMONSTER_VERSION, 8);
+  OledShowString(0, 5, (char *)"~ FP BurnMaster", 8);
+  OledShowString(0, 6, (char *)"github.com/davgk", 8);
   OledShowString(0,  7, (char *)"Press OK Button...", 8);
   WaitOKBtn();
 }
