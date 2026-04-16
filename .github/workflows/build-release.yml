@@ -27,10 +27,9 @@ jobs:
             ./emBuild -config "Debug" ${{ github.workspace }}//Burnmonster-Firmware/CartReaderApp/GDCartReader.emProject
 
       - name: Rename binary
-        run: mv ${{ github.workspace }}//Burnmonster-Firmware/CartReaderApp/Output/Debug/Exe/GDCartReader.bin \
-                ${{ github.workspace }}//Burnmonster-Firmware/CartReaderApp/Output/Debug/Exe/update.bin
+        run: mv ${{ github.workspace }}/Burnmonster-Firmware/CartReaderApp/Output/Debug/Exe/GDCartReader.bin ${{ github.workspace }}/Burnmonster-Firmware/CartReaderApp/Output/Debug/Exe/update.bin
 
       - uses: actions/upload-artifact@v4
         with:
           name: Burnmonster-Firmware
-          path: ${{ github.workspace }}//Burnmonster-Firmware/CartReaderApp/Output/Debug/Exe/update.bin
+          path: ${{ github.workspace }}/Burnmonster-Firmware/CartReaderApp/Output/Debug/Exe/update.bin
