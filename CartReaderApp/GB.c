@@ -2484,23 +2484,138 @@ uint8_t gbMenu()
       OledClear();
       if (lastByte > 0)
       {
-        f_chdir("/");
-        filePath[0] = '\0';
-        fileBrowser("/","Select sav file");
-        writeSRAM_GB();
-        OledClear();
-        unsigned long wrErrors;
-        wrErrors = verifySRAM_GB();
-        if (wrErrors == 0)
+        // Scan GB/SAVE/<romName> for subdirs that contain a .sav/.SAV file
+        char savePath[FILEPATH_LENGTH];
+        sprintf(savePath, "GB/SAVE/%s", romName);
+
+        // Max 20 slots; user-named slots with '-' prefix plus numeric auto-saves
+        char slotNames[20][32];
+        int slotCount = 0;
         {
-          OledShowString(0,2,"Verified OK",8);
+          DIR sdir;
+          FILINFO sfinfo;
+          if (f_opendir(&sdir, savePath) == FR_OK) {
+            while (slotCount < 20) {
+              if (f_readdir(&sdir, &sfinfo) != FR_OK || sfinfo.fname[0] == 0x00)
+                break;
+              if (sfinfo.fname[0] == '.')
+                continue;
+              if (!(sfinfo.fattrib & AM_DIR))
+                continue;
+              bool hasSav = false;
+              {
+                char subPath[FILEPATH_LENGTH];
+                snprintf(subPath, sizeof(subPath), "%s/%s", savePath, sfinfo.fname);
+                DIR subdir;
+                FILINFO subinfo;
+                if (f_opendir(&subdir, subPath) == FR_OK) {
+                  while (1) {
+                    if (f_readdir(&subdir, &subinfo) != FR_OK || subinfo.fname[0] == 0x00)
+                      break;
+                    int len = strlen(subinfo.fname);
+                    if (len >= 4 &&
+                        (strcmp(subinfo.fname + len - 4, ".sav") == 0 ||
+                         strcmp(subinfo.fname + len - 4, ".SAV") == 0)) {
+                      hasSav = true;
+                      break;
+                    }
+                  }
+                  f_closedir(&subdir);
+                }
+              }
+              if (!hasSav)
+                continue;
+              strncpy(slotNames[slotCount], sfinfo.fname, 31);
+              slotNames[slotCount][31] = '\0';
+              slotCount++;
+            }
+            f_closedir(&sdir);
+          }
         }
-        else
-        {
-          char tbufp[30] = {0};
-          sprintf(tbufp,"Error: %d bytes.",wrErrors);
-          OledShowString(0,1,tbufp,8);
-          print_Error("did not verify.", false);
+
+        // Sort: '-' prefix entries first (alphabetical), then numeric ascending
+        for (int i = 1; i < slotCount; i++) {
+          char tmp[32];
+          strncpy(tmp, slotNames[i], 32);
+          int j = i - 1;
+          while (j >= 0) {
+            int a_dash = (slotNames[j][0] == '-');
+            int b_dash = (tmp[0] == '-');
+            int a_after_b;
+            if (a_dash && !b_dash) {
+              a_after_b = 0;
+            } else if (!a_dash && b_dash) {
+              a_after_b = 1;
+            } else if (a_dash) {
+              a_after_b = (strcmp(slotNames[j], tmp) > 0);
+            } else {
+              a_after_b = (atoi(slotNames[j]) > atoi(tmp));
+            }
+            if (a_after_b) {
+              strncpy(slotNames[j + 1], slotNames[j], 32);
+              j--;
+            } else {
+              break;
+            }
+          }
+          strncpy(slotNames[j + 1], tmp, 32);
+        }
+
+        if (slotCount == 0) {
+          OledClear();
+          OledShowString(0, 2, "No saves found", 8);
+          break;
+        }
+
+        // Build display names: strip leading '-' for user-named slots
+        char displayNames[20][32];
+        for (int i = 0; i < slotCount; i++) {
+          if (slotNames[i][0] == '-')
+            strncpy(displayNames[i], slotNames[i] + 1, 31);
+          else
+            strncpy(displayNames[i], slotNames[i], 31);
+          displayNames[i][31] = '\0';
+        }
+
+        // Build pointer array for pagedMenu_OLED
+        const char *entries[20];
+        for (int i = 0; i < slotCount; i++)
+          entries[i] = displayNames[i];
+
+        // Slot selection loop — loops back on confirmation No/cancel
+        while (1) {
+          unsigned char sel = pagedMenu_OLED("Select save", entries, slotCount, 1);
+          if (sel == MENU_CANCEL)
+            break;
+
+          int idx = sel - 1;  // 0-based
+
+          // Confirm restore
+          OledClear();
+          const char *confirmYN[7] = {"Yes", "No", "", "", "", "", ""};
+          uint8_t c = questionBox_OLED("Restore to cart?", (const char* const *)confirmYN, 2, 1, 1, 1);
+          if (c != MENU_1)
+            continue;
+
+          // Build filePath using the internal slot name (with '-' if present)
+          sprintf(filePath, "/GB/SAVE/%s/%s/%s.SAV", romName, slotNames[idx], romName);
+
+          writeSRAM_GB();
+          OledClear();
+          unsigned long wrErrors;
+          wrErrors = verifySRAM_GB();
+          if (wrErrors == 0)
+          {
+            OledShowString(0, 2, "Verified OK", 8);
+          }
+          else
+          {
+            char tbufp[30] = {0};
+            sprintf(tbufp, "Error: %d bytes.", wrErrors);
+            OledShowString(0, 1, tbufp, 8);
+            print_Error("did not verify.", false);
+          }
+          break;
         }
       }
       else {
