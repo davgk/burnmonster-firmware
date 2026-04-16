@@ -25,7 +25,7 @@ This means counter values are not consecutive within a single game's folder — 
 - 7 entries displayed per page (then break, paginate)
 - Hidden files (starting with `.`) and `__MACOSX` directories are filtered out (added in commit 8a6ba56)
 
-## Save slot management (Issue #2, in progress)
+## Save slot management (Issue #2, GB complete — GBA pending)
 
 **Decision: Variant A** — extend the existing folder-based scheme.
 
@@ -83,9 +83,24 @@ A new menu entry lists all slots for the currently inserted cartridge:
 - `fileBrowser()` in `Operate.c:305` — reuse for slot selection UI
 - Folder creation via FatFs `f_mkdir()`
 
+### Current status
+
+GB/GBC implementation is complete and hardware-tested:
+- `next_save_slot()` helper in `Operate.c` (per-game counter scan)
+- `readSRAM_GB()` updated with slot selection menu
+- `manageSaves_GB()` added with delete + loop-back
+- GB menu restructured: Read Save / Write Save / Manage Saves / Read Rom / Flash GBC Cart / NPower GB Memory / Reset
+- Fixes: `foldern` initialization guard (starts at 1, not -1)
+- Fixes: slot sort order (user slots first), OledClear() between states, .sav validation
+
+GBA portierung is not yet started. When implemented, mirror all GB patterns for:
+- `readSRAM_GBA()`, `readEeprom_GBA()`, `readFLASH_GBA()`
+- New `manageSaves_GBA()` function
+- GBA menu restructure (same order as GB)
+
 ## Time-independent naming (Issue #3)
 
-The device has no RTC. Issue #3 is implicitly resolved by the global counter approach: filenames never depend on date/time.
+Resolved: the per-game counter approach (Issue #2) derives folder names from scanning existing folders on the SD card. No RTC dependency exists anywhere in the save path. Issue #3 closed.
 
 ## Hardware constraints
 
