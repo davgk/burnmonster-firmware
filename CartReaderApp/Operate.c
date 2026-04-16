@@ -688,3 +688,33 @@ page:
 
   */
 }
+
+// Returns the next available auto-save slot number for a given save directory.
+// Scans all numeric subfolders, returns highest + 1 (minimum 1).
+// Skips entries starting with '-' (user slots) and non-numeric names.
+int next_save_slot(const char *savePath)
+{
+  DIR dir;
+  FILINFO finfo;
+  int max = 0;
+
+  if (f_opendir(&dir, savePath) != FR_OK)
+    return 1;
+
+  while (1) {
+    if (f_readdir(&dir, &finfo) != FR_OK || finfo.fname[0] == 0x00)
+      break;
+    if (finfo.fname[0] == '-' || finfo.fname[0] == '.')
+      continue;
+    if (!(finfo.fattrib & AM_DIR))
+      continue;
+    int n = atoi(finfo.fname);
+    if (n == 0 && finfo.fname[0] != '0')
+      continue;
+    if (n > max)
+      max = n;
+  }
+
+  f_closedir(&dir);
+  return max + 1;
+}

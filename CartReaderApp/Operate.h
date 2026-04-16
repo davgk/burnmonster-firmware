@@ -32,3 +32,4 @@ void WaitOKBtn();
 unsigned char questionBox_OLED(char * question, const char* const answers[7], int num_answers, int default_choice, uint8_t rollselect, uint8_t clrSrc);
 uint8_t my_mkdir(char * dir);
 void fileBrowser(char * start_dir , const char * browserTitle);
+int next_save_slot(const char *savePath);
