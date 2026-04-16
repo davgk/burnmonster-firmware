@@ -1,3 +1,6 @@
 
 # Local Claude Code conventions, not for public repo
 CLAUDE.md
+
+# Local session context loader, not for public repo
+SESSION-CONTEXT.md
