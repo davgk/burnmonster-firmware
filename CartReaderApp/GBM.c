@@ -103,7 +103,8 @@ void readROM_GBM(word numBanks)
   OledShowString(0,0,"Reading Rom...",8);   
 
   // Get name, add extension and convert to char array for sd lib
-  foldern = load_dword();
+  foldern = (int)load_dword();
+  if (foldern < 1) foldern = 1;
   //
   sprintf(fileName, "GBM%d", foldern);
   strcat(fileName, ".bin");
@@ -515,7 +516,8 @@ void readMapping_GBM()
    
 
   // Get name, add extension and convert to char array for sd lib
-  foldern = load_dword();
+  foldern = (int)load_dword();
+  if (foldern < 1) foldern = 1;
   //
   sprintf(fileName, "GBM%d", foldern);
   strcat(fileName, ".map");

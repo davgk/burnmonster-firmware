@@ -498,7 +498,11 @@ void PriInit()
 
   rcu_periph_clock_enable(RCU_AF);
   //gpio_pin_remap_config(GPIO_SWJ_SWDPENABLE_REMAP,ENABLE);
-  foldern = load_dword();
+  foldern = (int)load_dword();
+  if (foldern < 1) {
+    foldern = 1;
+    save_dword((uint32_t)foldern);
+  }
 }
 
 int main(void) 

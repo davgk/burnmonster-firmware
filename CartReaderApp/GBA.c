@@ -524,7 +524,8 @@ void readROM_GBA()
   strcat(fileName, ".gba");
 
   // create a new folder for the rom file
-  foldern = load_dword();
+  foldern = (int)load_dword();
+  if (foldern < 1) foldern = 1;
   sprintf(folder, "/GBA/ROM/%s/%d", romName, foldern);
   my_mkdir(folder);
   f_chdir(folder);
@@ -639,7 +640,8 @@ void readSRAM_GBA(boolean browseFile, unsigned long sramSize, uint32_t pos)
     strcat(fileName, ".srm");
 
     // create a new folder for the save file
-    foldern = load_dword();
+    foldern = (int)load_dword();
+    if (foldern < 1) foldern = 1;
     sprintf(folder, "GBA/SAVE/%s/%d", romName, foldern);
     my_mkdir(folder);
     f_chdir(folder);
@@ -1114,7 +1116,8 @@ void readEeprom_GBA(word eepSize) {
   strcat(fileName, ".eep");
 
   // create a new folder for the save file
-  foldern = load_dword();
+  foldern = (int)load_dword();
+  if (foldern < 1) foldern = 1;
 
   sprintf(folder, "GBA/SAVE/%s/%d", romName, foldern);
   my_mkdir(folder);
@@ -1415,7 +1418,8 @@ void readFLASH_GBA (boolean browseFile, unsigned long flashSize, uint32_t pos)
     strcat(fileName, ".fla");
 
     // create a new folder for the save file
-    foldern = load_dword();
+    foldern = (int)load_dword();
+    if (foldern < 1) foldern = 1;
 
     sprintf(folder, "GBA/SAVE/%s/%d", romName, foldern);
     my_mkdir(folder);
