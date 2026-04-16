@@ -23,6 +23,8 @@ Purpose : Generic application start
 #include "gd32f10x_sdio.h"
 #include "flashparam.h"
 
+#define BURNMONSTER_VERSION "v0.1.0-dev"
+
 
 
 
@@ -91,16 +93,13 @@ static const char* const menuOptionsGBx[] = {gbxMenuItem1, gbxMenuItem2};
 
 void aboutScreen()
 {
-  //
   OledClear();
-  OledShowString(0,0,(char *)("Portable"),16);
-  OledShowString(8,2,(char *)("Cart Flasher"),16);
-  OledShowString(20,4,(char *)("Ver:1.10"),8);
-  OledShowString(20,5,(char *)("2024.1"),8);
-  OledShowString(20,6,(char *)("Orz Studio"),8);
-
-  OledShowString(0,7,(char *)("Press OK Button..."),8);
-
+  OledShowString(0, 0, (char *)"Burn",    16);
+  OledShowString(0, 2, (char *)"Monster", 16);
+  OledShowString(20, 4, (char *)BURNMONSTER_VERSION, 8);
+  OledShowString(20, 5, (char *)"based on FP BurnMaster", 8);
+  OledShowString(20, 6, (char *)"github.com/davgk", 8);
+  OledShowString(0,  7, (char *)"Press OK Button...", 8);
   WaitOKBtn();
 }
 
