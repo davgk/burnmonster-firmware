@@ -610,14 +610,14 @@ void readSRAM_GB() {
     char savePath[FILEPATH_LENGTH];
     sprintf(savePath, "GB/SAVE/%s", romName);
 
-    // Collect existing slots that contain a .sav file (max 6)
-    char slotNames[6][32];
+    // Collect existing slots that contain a .sav file (max 20)
+    char slotNames[20][32];
     int slotCount = 0;
     {
       DIR sdir;
       FILINFO sfinfo;
       if (f_opendir(&sdir, savePath) == FR_OK) {
-        while (slotCount < 6) {
+        while (slotCount < 20) {
           if (f_readdir(&sdir, &sfinfo) != FR_OK || sfinfo.fname[0] == 0x00)
             break;
           if (sfinfo.fname[0] == '.')
@@ -692,27 +692,29 @@ void readSRAM_GB() {
       int slot = next_save_slot(savePath);
       sprintf(targetSlot, "%d", slot);
     } else {
-      // Build answer list: existing slots + [New auto-save]
-      char answerBuf[7][32];
+      // Build display names: strip leading '-' for user-named slots
+      char displayNames[20][32];
       for (int i = 0; i < slotCount; i++) {
-        strncpy(answerBuf[i], slotNames[i], 31);
-        answerBuf[i][31] = '\0';
+        if (slotNames[i][0] == '-')
+          strncpy(displayNames[i], slotNames[i] + 1, 31);
+        else
+          strncpy(displayNames[i], slotNames[i], 31);
+        displayNames[i][31] = '\0';
       }
-      strncpy(answerBuf[slotCount], "[New auto-save]", 31);
-      int menuCount = slotCount + 1;
-      char *aptrs[7];
-      for (int i = 0; i < 7; i++) aptrs[i] = answerBuf[i];
+      // entries: displayNames[0..slotCount-1] + "[New auto-save]"
+      const char *entries[21];
+      for (int i = 0; i < slotCount; i++) entries[i] = displayNames[i];
+      entries[slotCount] = "[New auto-save]";
 
       // Yes/No answers for confirmation dialogs
       const char *confirmYN[7] = {"Yes", "No", "", "", "", "", ""};
 
       // Slot selection loop — loops back on confirmation No/cancel
       while (1) {
-        OledClear();
-        uint8_t choice = questionBox_OLED("Select slot", (const char **)aptrs, menuCount, 1, 0, 1);
-        if (choice == MENU_CANCEL)
+        unsigned char sel = pagedMenu_OLED("Select slot", entries, slotCount + 1, 1);
+        if (sel == MENU_CANCEL)
           return;
-        int idx = choice - 1;
+        int idx = sel - 1;
         if (idx == slotCount) {
           // [New auto-save] selected
           int slot = next_save_slot(savePath);
@@ -2310,14 +2312,14 @@ void manageSaves_GB() {
   char savePath[FILEPATH_LENGTH];
   sprintf(savePath, "GB/SAVE/%s", romName);
 
-  // Collect existing slots that contain a .sav file (max 6)
-  char slotNames[6][32];
+  // Collect existing slots that contain a .sav file (max 20)
+  char slotNames[20][32];
   int slotCount = 0;
   {
     DIR sdir;
     FILINFO sfinfo;
     if (f_opendir(&sdir, savePath) == FR_OK) {
-      while (slotCount < 6) {
+      while (slotCount < 20) {
         if (f_readdir(&sdir, &sfinfo) != FR_OK || sfinfo.fname[0] == 0x00)
           break;
         if (sfinfo.fname[0] == '.')
@@ -2392,13 +2394,21 @@ void manageSaves_GB() {
   const char *confirmYN[7] = {"Yes", "No", "", "", "", "", ""};
 
   while (1) {
-    char *aptrs[7];
-    for (int i = 0; i < slotCount; i++) aptrs[i] = slotNames[i];
-    OledClear();
-    uint8_t choice = questionBox_OLED("Manage Saves", (const char **)aptrs, slotCount, 1, 0, 1);
-    if (choice == MENU_CANCEL)
+    // Build display names: strip leading '-' for user-named slots
+    char displayNames[20][32];
+    for (int i = 0; i < slotCount; i++) {
+      if (slotNames[i][0] == '-')
+        strncpy(displayNames[i], slotNames[i] + 1, 31);
+      else
+        strncpy(displayNames[i], slotNames[i], 31);
+      displayNames[i][31] = '\0';
+    }
+    const char *entries[20];
+    for (int i = 0; i < slotCount; i++) entries[i] = displayNames[i];
+    unsigned char sel = pagedMenu_OLED("Manage Saves", entries, slotCount, 1);
+    if (sel == MENU_CANCEL)
       return;
-    int idx = choice - 1;
+    int idx = sel - 1;
 
     // Confirm delete
     if (slotNames[idx][0] == '-') {
