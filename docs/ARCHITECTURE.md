@@ -25,40 +25,63 @@ This means counter values are not consecutive within a single game's folder — 
 - 7 entries displayed per page (then break, paginate)
 - Hidden files (starting with `.`) and `__MACOSX` directories are filtered out (added in commit 8a6ba56)
 
-## Save slot management (planned, Issue #2)
+## Save slot management (Issue #2, in progress)
 
 **Decision: Variant A** — extend the existing folder-based scheme.
 
-Current structure:
+### Folder structure
 ```
-GB/SAVE/POKEMONY/0/POKEMONY.sav    ← auto-save (numeric subfolder)
-GB/SAVE/POKEMONY/1/POKEMONY.sav    ← auto-save
-```
-
-Planned addition:
-```
-GB/SAVE/POKEMONY/-david/POKEMONY.sav     ← user slot (subfolder with - prefix)
-GB/SAVE/POKEMONY/-partner/POKEMONY.sav   ← user slot
+GB/SAVE/POKEMONY/1/POKEMONY.sav      ← auto-save (numeric, starting at 1)
+GB/SAVE/POKEMONY/2/POKEMONY.sav
+GB/SAVE/POKEMONY/-david/POKEMONY.sav ← user slot (- prefix, sorts above numerics)
+GB/SAVE/POKEMONY/-partner/POKEMONY.sav
 ```
 
-Sorting via the `-` prefix puts user slots above numeric auto-saves in the file browser (ASCII `-` < `0`).
+Sorting: ASCII `-` (0x2D) < `0` (0x30), so user slots always appear above auto-saves in the file browser.
 
-Workflow on Read Save:
-1. Check if `<NAME>` directory exists in `GB/SAVE/`
-2. If existing slots/saves found, prompt user: Overwrite slot / Overwrite auto-save / Create new
-3. Overwrite preserves the chosen folder name
-4. Create new uses the next global counter value as folder name
+### Counter strategy
 
-Workflow on Manage Saves (new menu):
-- List all `.sav` files for the inserted cart's `<NAME>` directory
-- Selecting one offers Delete with confirmation
-- User slots (folders starting with `-`) require double confirmation; auto-saves single confirmation
+Auto-save folders use a **per-game counter**, not the global MCU counter (`foldern`).
 
-### Implementation hints
-- `readSRAM_GB()` in `GB.c:600` is the main save-read entry point
-- `writeSRAM_GB()` in `GB.c:672` for save-write
-- `fileBrowser()` in `Operate.c:305` for slot selection UI (existing component, can be reused)
-- Folder creation likely uses FatFs `f_mkdir()`; check existing usage in `GB.c` around the save path construction
+On each save operation, the firmware scans all numeric subfolders in `GB/SAVE/<GAMENAME>/`, finds the highest value, and uses that + 1 as the next slot number (minimum: 1). This makes the counter robust against firmware updates and SD card replacements, since the ground truth is always derived from what is actually on the SD card.
+
+The global MCU counter (`foldern`) is preserved as-is and continues to be used exclusively for ROM dumps and other non-save operations.
+
+### User-facing workflow (Read Save)
+```
+Read Save →
+Does GB/SAVE/<GAMENAME>/ contain any slots?
+├── No  → create new auto-save directly (next per-game slot number)
+└── Yes → show slot selection menu:
+    ├── [list of existing slots, user slots first]
+    │     → select slot → confirm → overwrite
+    │     → "Back" → return to this menu
+    └── [New auto-save]
+          → next per-game slot number → save
+```
+
+- User slots (`-name`) require double confirmation before overwrite
+- Auto-saves require single confirmation before overwrite
+- "Back" always returns to the slot selection menu, never to the main menu
+
+### Manage Saves menu (new)
+
+A new menu entry lists all slots for the currently inserted cartridge:
+- Selecting a slot offers Delete with confirmation
+- User slots: double confirmation required
+- Auto-saves: single confirmation required
+
+### Implementation order
+
+1. GB/GBC first (`readSRAM_GB` in `GB.c:600`, `writeSRAM_GB` in `GB.c:672`)
+2. GBA after GB is tested on hardware (three save types: SRAM, EEPROM, Flash)
+
+### Key implementation hints
+
+- `next_save_slot(const char *savePath)` — new helper in `Operate.c`/`Operate.h`: scans savePath, finds highest numeric subfolder, returns max+1 (min 1), skips `-` prefix entries
+- `readSRAM_GB()` in `GB.c:600` — main entry point to modify
+- `fileBrowser()` in `Operate.c:305` — reuse for slot selection UI
+- Folder creation via FatFs `f_mkdir()`
 
 ## Time-independent naming (Issue #3)
 
