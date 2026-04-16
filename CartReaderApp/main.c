@@ -85,11 +85,66 @@ static const char gbxMenuItem2[] = "Game Boy Advance";
 static const char gbxMenuTestAll[] = "CartTest";
 static const char gbxMenuTestFast[] = "CartTestFast";
 static const char gbxAbout[] = "About...";
+static const char gbxMenuSD[] = "SD Card Info";
 
-static const char* const menuOptionsGBC[] = {gbxMenuItem1,gbxMenuTestFast,gbxMenuTestAll,gbxAbout};
-static const char* const menuOptionsGBA[] = {gbxMenuItem2,gbxMenuTestFast,gbxMenuTestAll,gbxAbout};
-static const char* const menuOptionsGBx[] = {gbxMenuItem1, gbxMenuItem2};
+static const char* const menuOptionsGBC[] = {gbxMenuItem1,gbxMenuTestFast,gbxMenuTestAll,gbxAbout,gbxMenuSD};
+static const char* const menuOptionsGBA[] = {gbxMenuItem2,gbxMenuTestFast,gbxMenuTestAll,gbxAbout,gbxMenuSD};
+static const char* const menuOptionsGBx[] = {gbxMenuItem1, gbxMenuItem2, gbxMenuSD};
 
+
+void sdInfoScreen()
+{
+  OledClear();
+  OledShowString(0, 0, (char *)"SD Card Info", 8);
+
+  uint32_t totalKB = sd_card_capacity_get();
+
+  DWORD freeClusters;
+  FATFS *fsp = &fs;
+  FRESULT fr = f_getfree("", &freeClusters, &fsp);
+
+  char line[21] = {0};
+  if (totalKB >= 1024 * 1024) {
+    uint32_t gb = totalKB / (1024 * 1024);
+    uint32_t gb_frac = (totalKB % (1024 * 1024)) * 10 / (1024 * 1024);
+    snprintf(line, sizeof(line), "Total: %lu.%lu GB", gb, gb_frac);
+  } else {
+    uint32_t mb = totalKB / 1024;
+    uint32_t mb_frac = (totalKB % 1024) * 10 / 1024;
+    snprintf(line, sizeof(line), "Total: %lu.%lu MB", mb, mb_frac);
+  }
+  OledShowString(0, 2, line, 8);
+
+  if (fr == FR_OK) {
+    uint32_t freeKB = (uint32_t)(freeClusters * fsp->csize / 2);
+    char freeLine[21] = {0};
+    if (freeKB >= 1024 * 1024) {
+      uint32_t gb = freeKB / (1024 * 1024);
+      uint32_t gb_frac = (freeKB % (1024 * 1024)) * 10 / (1024 * 1024);
+      snprintf(freeLine, sizeof(freeLine), "Free:  %lu.%lu GB", gb, gb_frac);
+    } else {
+      uint32_t mb = freeKB / 1024;
+      uint32_t mb_frac = (freeKB % 1024) * 10 / 1024;
+      snprintf(freeLine, sizeof(freeLine), "Free:  %lu.%lu MB", mb, mb_frac);
+    }
+    OledShowString(0, 3, freeLine, 8);
+  } else {
+    OledShowString(0, 3, (char *)"Free:  n/a", 8);
+  }
+
+  char fatLine[21] = {0};
+  switch (fsp->fs_type) {
+    case FS_FAT12: snprintf(fatLine, sizeof(fatLine), "Format: FAT12"); break;
+    case FS_FAT16: snprintf(fatLine, sizeof(fatLine), "Format: FAT16"); break;
+    case FS_FAT32: snprintf(fatLine, sizeof(fatLine), "Format: FAT32"); break;
+    case FS_EXFAT: snprintf(fatLine, sizeof(fatLine), "Format: exFAT"); break;
+    default:       snprintf(fatLine, sizeof(fatLine), "Format: unknown"); break;
+  }
+  OledShowString(0, 4, fatLine, 8);
+
+  OledShowString(0, 7, (char *)"Press OK Button...", 8);
+  WaitOKBtn();
+}
 
 void aboutScreen()
 {
@@ -122,7 +177,7 @@ uint8_t gbxMenu()
     LED_BLUE_ON;
     OledClear();
     OledShowPicData(64,4,56,4,Icon_data_GBA);
-    gbType = questionBox_OLED("Portable Cart Flasher", menuOptionsGBA, 4, 1, 1, 0);    
+    gbType = questionBox_OLED("Portable Cart Flasher", menuOptionsGBA, 5, 1, 1, 0);
     switch (gbType)
     {
       case 0:
@@ -143,6 +198,9 @@ uint8_t gbxMenu()
       case 4:
         aboutScreen();
         break;
+      case 5:
+        sdInfoScreen();
+        break;
     }
   }
   else if(gbxtype == TYPE_GBC)
@@ -151,7 +209,7 @@ uint8_t gbxMenu()
     LED_GREEN_ON;
     OledClear();
     OledShowPicData(86,2,29,6,Icon_data_GBC);
-    gbType = questionBox_OLED("Portable Cart Flasher", menuOptionsGBC, 4, 1, 1, 0);    
+    gbType = questionBox_OLED("Portable Cart Flasher", menuOptionsGBC, 5, 1, 1, 0);
     switch (gbType)
     {
       case 0:
@@ -172,11 +230,14 @@ uint8_t gbxMenu()
       case 4:
         aboutScreen();
         break;
+      case 5:
+        sdInfoScreen();
+        break;
     }
   }
   else 
   {
-    gbType = questionBox_OLED("Portable Cart Flasher", menuOptionsGBx, 2, 1, 1, 1);
+    gbType = questionBox_OLED("Portable Cart Flasher", menuOptionsGBx, 3, 1, 1, 1);
 
     switch (gbType)
     {
@@ -190,6 +251,10 @@ uint8_t gbxMenu()
 
       case 2:
         gbaScreen();
+        break;
+
+      case 3:
+        sdInfoScreen();
         break;
     }
   }
